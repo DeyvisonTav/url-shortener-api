@@ -1,22 +1,29 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger } from '@nestjs/common';
+import * as express from 'express';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import * as awsServerlessExpress from 'aws-serverless-express';
+import { Handler } from 'aws-lambda';
+
+const expressApp = express();
+
+let cachedServer: Handler;
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  const port = process.env.PORT ?? 3000;
-
-  try {
-    await app.listen(port);
-    Logger.log(
-      `🚀 Application is running on: http://localhost:${port}`,
-      'Bootstrap',
+  if (!cachedServer) {
+    const app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(expressApp),
     );
-  } catch (error) {
-    Logger.error('❌ Error starting the application', error, 'Bootstrap');
-    process.exit(1);
+    app.enableCors();
+    await app.init();
+
+    cachedServer = awsServerlessExpress.createServer(expressApp);
   }
+  return cachedServer;
 }
 
-bootstrap();
+export const handler: Handler = async (event, context) => {
+  const server = await bootstrap();
+  return awsServerlessExpress.proxy(server, event, context, 'PROMISE').promise;
+};

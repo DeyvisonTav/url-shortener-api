@@ -1,0 +1,26 @@
+service: url-shortener-nestjs
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  environment:
+    AWS_REGION: ${env:AWS_REGION}
+    AWS_BUCKET_NAME: ${env:AWS_BUCKET_NAME}
+    HOST: ${env:HOST}
+
+functions:
+  api:
+    handler: dist/main.handler
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: any
+
+package:
+  individually: false
+  exclude:
+    - node_modules/**
+  include:
+    - dist/**
